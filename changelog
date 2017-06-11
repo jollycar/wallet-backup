@@ -1,0 +1,13 @@
+Version 0.2.0:
+- Added option to gracefully close application
+- use rdedup for backups
+- created option to store a zip (tar) file after backup
+- added bash traps
+- added examples for bitcoin, litecoin and mist wallet
+- much more
+;
+Version 0.1.0:
+- Initial version
+;
+Version 0.0.0:
+- (Empty)

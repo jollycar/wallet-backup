@@ -1,0 +1,75 @@
+#!/usr/bin/env sh
+
+info() {
+  echo "Checks the configuration"
+}
+
+usage() {
+    echo "Usage: ./$script_filename check (subcommand)"
+    echo
+    echo "Subcommands:"
+    echo "process <process name>: Checks if the process is running"
+    echo "repository: Checks if the encrypted repotory is available and healthy"
+}
+
+check_process() {
+  local pid=`pgrep -x $1`
+  if [ -z "$pid" ]; then
+    echo "SUCCESS: Unknown process. The process $1 is not running"
+  else
+    echo "ERROR: Process $1 is running with PID: $pid"
+    exit 65
+  fi
+}
+
+check_source() {
+  IFS=","
+  entries=( $wallet_source_path )
+  for entry in "${entries[@]}";
+    do
+      if [ -f "$entry" ]; then
+        echo "SUCCESS: File exists at source location $entry"
+      elif [ -d "$entry" ]; then
+        echo "SUCCESS: Directory exists at source location $entry"
+      else
+        echo "ERROR: Wallet not found at source location $wallet_source_path"
+        exit 1
+      fi
+  done
+}
+
+check_repository() {
+  if [ -d "$encrypted_repository" ]; then
+    echo "These files are stored in the repository at location $encrypted_repository:"
+    rdedup -d "$encrypted_repository" list
+  else
+    echo "ERROR: Repository does not exist at location $encrypted_repository."
+    echo "Run './$script_filename init' to create a repository"
+    exit 1
+  fi
+}
+
+cmd_check() {
+  if [ "$#" -lt 1 ]; then
+    info
+    usage
+    exit 0
+  elif [ "$#" -gt 0 ]; then
+    if [ $1 == "info" ]; then
+			info
+			exit 0
+		elif [ $1 == "process" ]; then
+      check_process "$2"
+			exit 0
+    elif [ $1 == "repository" ]; then
+			check_repository
+			exit 0
+		else
+			usage
+      exit 0
+    fi
+      #DO_SOMETHING $1; exit 0
+  fi
+
+  exit 1
+}

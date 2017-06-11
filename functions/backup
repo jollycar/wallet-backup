@@ -1,0 +1,119 @@
+#!/usr/bin/env sh
+
+info() {
+  echo "Make a backup of the wallet"
+}
+
+usage() {
+    echo "Usage: ./$script_filename backup (subcommand) [<wallet>]"
+    echo
+    echo "Subcommands:"
+    echo "run: Make a backup to the encrypted repository"
+    echo "restore <name>: Restore a wallet from the repository. See './$script_filename check repository'"
+}
+
+backup_sanity_check() {
+  check_process=`./$script_filename check process $wallet_process_name`
+  if [ "$?" -gt 0 ]; then
+    echo "$check_process"
+    close_gracefully $wallet_process_name
+  fi
+  check_repository=`./$script_filename check repository`
+  if [ "$?" -gt 0 ]; then
+    echo "$check_repository"
+    exit 1
+  fi
+  check_source=`./$script_filename check source`
+  if [ "$?" -gt 0 ]; then
+    echo "$check_source"
+    exit 1
+  fi
+  echo "Sanity check OK."
+}
+
+backup_save_repo() {
+  IFS=","
+  entries=( $wallet_source_path )
+  for entry in "${entries[@]}";
+    do
+    path_name=`echo "$entry" | rev | cut -d"/" -f1 | rev`
+      rdup -v /dev/null $entry | rdedup -d $encrypted_repository store $1-$path_name-`date +%Y-%m-%d-%H%M%S`
+      if [ "$?" -gt 0 ]; then
+        echo "ERROR: Could not save wallet $1"
+        exit 1
+      fi
+  done
+  tar -cvzf $encrypted_repository_zip/repo-`date +%Y-%m-%d-%H%M%S`.tar.gz $encrypted_repository/* > /dev/null
+  echo "Copy OK."
+}
+
+backup_restore() {
+  echo "Now going to verify $1 inside the repository"
+  rdedup -d $encrypted_repository verify $1 >/dev/null
+  if [ "$?" -gt 0 ]; then
+    echo "ERROR: Could not verify $1"
+    exit 1
+  else
+    echo "Verify OK. Now going to restore $1"
+    IFS= read -erp "What directory do you want to restore $1 to: " -i "$HOME/restore" restore_location
+    if [ ! -d $restore_location ]; then
+      echo "ERROR: Directory $restore_location does not exists"
+    else
+      if [ -d $restore_location/$1 ]; then
+        echo "ERROR: Directory $restore_location/$1 already exists. Exiting..."
+        exit 1
+      else
+        rdedup -d $encrypted_repository load $1 | rdup-up -t $restore_location/$1
+      fi
+    fi
+  fi
+}
+
+backup_run() {
+  echo "============= Backing up wallet: $1 ============="
+  echo -n "Sanity check... "
+  backup_sanity_check
+  echo -n "Adding $wallet_source_path to repository... "
+  backup_save_repo "$1"
+  echo "SUCCESS: Backed up wallet $1."
+}
+
+cmd_backup() {
+  if [ "$#" -lt 1 ]; then
+    info
+    usage
+    exit 0
+  elif [ "$#" -gt 0 ]; then
+    if [ $1 == "info" ]; then
+			info
+			exit 0
+    elif [ $1 == "run" ]; then
+      if [ "$#" -eq 2 ]; then
+        #Backup only a specific wallet
+        read_config "$install_dir/wallets/$2.conf"
+        echo "Backing up only wallet: $2"
+        backup_run $2
+      else
+			  #No specific wallet given. Backing up all wallets
+        echo "Backing up the following wallets: $(wallets_supported)"
+        for current_wallet in $(wallets_supported)
+        do
+          read_config "$install_dir/wallets/$current_wallet.conf"
+          backup_run $current_wallet
+        done
+      fi
+			exit 0
+    elif [ $1 == "restore" ]; then
+			if [ "$#" -eq 2 ]; then
+        echo "Restoring $2"
+        backup_restore $2
+      fi
+		else
+			usage
+      exit 0
+    fi
+      #DO_SOMETHING $1; exit 0
+  fi
+
+  exit 1
+}

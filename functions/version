@@ -1,0 +1,46 @@
+#!/usr/bin/env sh
+
+info() {
+  echo "Print information about the version and changelog"
+}
+
+usage() {
+  echo "Usage: ./$script_filename version (subcommand)"
+  echo
+  echo "Subcommands:"
+  echo "show: Display version information about this program"
+  echo "changelog: Display the changelog"
+}
+
+version() {
+  echo "Wallet backup version $version"
+}
+
+changelog() {
+  cat "$install_dir/changelog" | cut -f1 -z -d";"
+}
+
+cmd_version() {
+  if [ "$#" -lt 1 ]; then
+    info;
+    usage;
+    exit 0
+  elif [ "$#" -gt 0 ]; then
+    if [ $1 == "info" ]; then
+			info
+			exit 0
+    elif [ $1 == "show" ]; then
+      version
+			exit 0
+		elif [ $1 == "changelog" ]; then
+			changelog
+			exit 0
+		else
+			usage;
+      exit 0
+    fi
+      #DO_SOMETHING $1; exit 0
+  fi
+
+  exit 1
+}
